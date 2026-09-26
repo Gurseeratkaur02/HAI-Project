@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Humidity Fault Review Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9EEEC; --panel:#F7F9F8; --ink:#17252F; --muted:#5B6B72; --line:#CDD7D5;
+  --teal:#0E7383; --amber:#B8701A; --amber-soft:rgba(184,112,26,.14);
+  --blue:#3663A0; --good:#2F7D4F; --bad:#A33B2E; --chip:#E1E8E6;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#121A1F; --panel:#1A242A; --ink:#E4ECEA; --muted:#93A4A8; --line:#2C3A40;
+    --teal:#46B3C2; --amber:#E0A04A; --amber-soft:rgba(224,160,74,.16);
+    --blue:#7FA6DB; --good:#62B585; --bad:#E07A6B; --chip:#243037;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121A1F; --panel:#1A242A; --ink:#E4ECEA; --muted:#93A4A8; --line:#2C3A40;
+  --teal:#46B3C2; --amber:#E0A04A; --amber-soft:rgba(224,160,74,.16);
+  --blue:#7FA6DB; --good:#62B585; --bad:#E07A6B; --chip:#243037;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.wrap{max-width:1360px;margin:0 auto;padding:20px 20px 40px}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;padding-bottom:16px;border-bottom:2px solid var(--ink)}
+h1{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:clamp(26px,3.2vw,36px);line-height:1.1;margin:0;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:6px 0 0;max-width:62ch}
+.proto{font-size:13px;color:var(--muted);border:1px solid var(--line);padding:6px 10px;border-radius:4px;background:var(--panel)}
+
+.rooms{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:18px 0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--panel)}
+.room{padding:12px 16px;border-right:1px solid var(--line)}
+.room:last-child{border-right:0}
+.room .name{font-weight:600}
+.room .rh{font-family:"Newsreader",Georgia,serif;font-size:30px;line-height:1.1}
+.room .rh small{font-family:"Public Sans",sans-serif;font-size:14px;color:var(--muted);margin-left:2px}
+.room .st{font-size:13px;color:var(--muted)}
+.room .st b{color:var(--amber);font-weight:600}
+
+.grid{display:grid;grid-template-columns:280px minmax(0,1fr) 340px;gap:18px;align-items:start}
+.pane{background:var(--panel);border:1px solid var(--line);border-radius:6px}
+.pane h2{font-size:15px;font-weight:700;margin:0;padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pane h2 span{font-weight:400;color:var(--muted);font-size:13px}
+
+.sort{display:flex;gap:4px;padding:10px 14px 0}
+.sort button{flex:1;border:1px solid var(--line);background:transparent;padding:5px 6px;border-radius:4px;font-size:13px;cursor:pointer}
+.sort button[aria-pressed="true"]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.queue{list-style:none;margin:0;padding:8px}
+.queue li button{width:100%;text-align:left;background:transparent;border:1px solid transparent;border-radius:4px;padding:9px 10px;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:2px 8px}
+.queue li button:hover{background:var(--chip)}
+.queue li button[aria-current="true"]{border-color:var(--ink);background:var(--bg)}
+.q-room{font-weight:600}
+.q-time{font-size:13px;color:var(--muted)}
+.q-p{font-size:13px;text-align:right;align-self:center;grid-row:1/3;grid-column:2}
+.meter{display:block;width:44px;height:5px;background:var(--line);border-radius:3px;margin-top:4px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--amber)}
+.q-done{font-size:12px;color:var(--good)}
+.q-done.real{color:var(--blue)}
+
+.review{padding:16px 18px}
+.ev-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;align-items:baseline}
+.ev-head h3{font-family:"Newsreader",Georgia,serif;font-size:24px;font-weight:600;margin:0}
+.ev-head p{margin:0;color:var(--muted);font-size:14px}
+.ask{margin:12px 0 4px;padding:10px 12px;border-left:3px solid var(--amber);background:var(--amber-soft);font-size:14px}
+.chartbox{overflow-x:auto;margin-top:10px}
+svg.chart{display:block;width:100%;min-width:520px;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted);margin-top:6px;align-items:center}
+.legend label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.sw{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+
+.evidence{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+.evidence h4{margin:0 0 8px;font-size:14px}
+.vote{display:grid;grid-template-columns:110px 1fr 40px;gap:8px;align-items:center;font-size:13px;margin-bottom:6px}
+.bar{height:8px;background:var(--line);border-radius:4px;position:relative;overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--teal);border-radius:4px}
+.bar.thr::after{content:"";position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink);left:var(--t)}
+.feat{font-size:13px;margin:0 0 7px;padding-left:10px;border-left:3px solid var(--teal)}
+.feat b{font-weight:600}
+.note{font-size:12px;color:var(--muted);margin-top:6px}
+
+form.label{padding:14px}
+fieldset{border:0;margin:0 0 16px;padding:0}
+legend{font-weight:700;font-size:14px;margin-bottom:8px;padding:0}
+.verdicts{display:grid;gap:6px}
+.verdicts label{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:5px;padding:9px 10px;cursor:pointer}
+.verdicts label:has(input:checked){border-color:var(--ink);background:var(--bg)}
+.verdicts small{display:block;color:var(--muted);font-size:12px}
+.checks{display:flex;flex-wrap:wrap;gap:6px}
+.checks label{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:20px;padding:4px 11px;font-size:13px;cursor:pointer;background:var(--panel)}
+.checks label:has(input:checked){background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.checks input{position:absolute;opacity:0;width:0;height:0}
+.checks label:has(input:focus-visible){outline:2px solid var(--teal);outline-offset:2px}
+.hidden{display:none}
+textarea{width:100%;min-height:62px;border:1px solid var(--line);border-radius:5px;padding:8px;background:var(--bg);resize:vertical}
+.actions{display:flex;gap:8px}
+.btn{border:1px solid var(--ink);background:var(--ink);color:var(--panel);padding:9px 16px;border-radius:5px;font-weight:600;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.toast{font-size:13px;color:var(--good);min-height:20px;margin-top:8px}
+
+.loop{margin-top:18px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line)}
+.stat{padding:12px 14px;border-right:1px solid var(--line)}
+.stat:last-child{border-right:0}
+.stat .v{font-family:"Newsreader",Georgia,serif;font-size:26px;line-height:1.1}
+.stat .k{font-size:13px;color:var(--muted)}
+.loop-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0}
+.loop-body > div{padding:14px}
+.loop-body > div + div{border-left:1px solid var(--line)}
+.log{list-style:none;margin:8px 0 0;padding:0;font-size:13px}
+.log li{padding:6px 0;border-bottom:1px solid var(--line)}
+.log li:last-child{border-bottom:0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:6px 8px 6px 0;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600}
+.empty{color:var(--muted);font-size:13px}
+.tblwrap{overflow-x:auto;max-height:240px;overflow-y:auto}
+
+@media (max-width:1100px){
+  .grid{grid-template-columns:260px minmax(0,1fr)}
+  .grid > .labelpane{grid-column:1/-1}
+}
+@media (max-width:760px){
+  .grid{grid-template-columns:1fr}
+  .rooms{grid-template-columns:repeat(2,1fr)}
+  .room:nth-child(2){border-right:0}
+  .room:nth-child(-n+2){border-bottom:1px solid var(--line)}
+  .evidence{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .loop-body{grid-template-columns:1fr}
+  .loop-body > div + div{border-left:0;border-top:1px solid var(--line)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Humidity fault review console</h1>
+      <p class="sub">OpenCyberCity testbed, four rooms. The detector flags suspicious readings; you confirm what actually happened, and your labels train the next model.</p>
+    </div>
+    <div class="proto">Prototype with simulated events modeled on the paper's fault types</div>
+  </header>
+
+  <section class="rooms" id="rooms" aria-label="Room status"></section>
+
+  <div class="grid">
+    <aside class="pane" aria-label="Review queue">
+      <h2>Review queue <span id="qcount"></span></h2>
+      <div class="sort" role="group" aria-label="Sort queue">
+        <button type="button" id="sortU" aria-pressed="true">Least certain first</button>
+        <button type="button" id="sortT" aria-pressed="false">Newest first</button>
+      </div>
+      <ul class="queue" id="queue"></ul>
+    </aside>
+
+    <main class="pane review" id="review" aria-live="polite"></main>
+
+    <aside class="pane labelpane" aria-label="Your label">
+      <h2>Your label <span id="labelstate"></span></h2>
+      <form class="label" id="form">
+        <fieldset>
+          <legend>What happened?</legend>
+          <div class="verdicts">
+            <label><input type="radio" name="verdict" value="fault"><span>Sensor fault<small>The reading is wrong; the room was not like this.</small></span></label>
+            <label><input type="radio" name="verdict" value="real"><span>Real humidity change<small>The sensor was right; something happened in the room.</small></span></label>
+            <label><input type="radio" name="verdict" value="unsure"><span>Can't tell<small>Send it to a second reviewer.</small></span></label>
+          </div>
+        </fieldset>
+
+        <fieldset id="faultSet" class="hidden">
+          <legend>What did the fault look like?</legend>
+          <div class="checks" data-group="pattern"></div>
+        </fieldset>
+        <fieldset id="causeSet" class="hidden">
+          <legend>Likely cause</legend>
+          <div class="checks" data-group="cause"></div>
+        </fieldset>
+        <fieldset id="realSet" class="hidden">
+          <legend>What caused the change?</legend>
+          <div class="checks" data-group="event"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>How sure are you?</legend>
+          <div class="checks" data-group="conf"></div>
+        </fieldset>
+        <fieldset>
+          <legend><label for="note">Notes for the maintenance team</label></legend>
+          <textarea id="note" placeholder="Example: gateway in the hallway rebooted at 14:10"></textarea>
+        </fieldset>
+        <div class="actions">
+          <button class="btn" type="submit" id="save" disabled>Save label</button>
+          <button class="btn ghost" type="button" id="skip">Skip</button>
+        </div>
+        <div class="toast" id="toast" role="status"></div>
+      </form>
+    </aside>
+  </div>
+
+  <section class="pane loop" aria-label="Learning loop">
+    <h2>Learning loop <span>how your labels change the detector</span></h2>
+    <div class="stats">
+      <div class="stat"><div class="v" id="sLabeled">0</div><div class="k">events labeled</div></div>
+      <div class="stat"><div class="v" id="sAgree">n/a</div><div class="k">model agreed with you</div></div>
+      <div class="stat"><div class="v" id="sCaught">0</div><div class="k">false alarms you caught</div></div>
+      <div class="stat"><div class="v" id="sFA">59.9</div><div class="k">false alarms per day, current model</div></div>
+    </div>
+    <div class="loop-body">
+      <div>
+        <p style="margin:0 0 10px;font-size:14px">Retraining folds your labels into the training set. Real humidity changes you confirm teach the model which rises are shower or cooking, not faults.</p>
+        <button class="btn" type="button" id="retrain" disabled>Retrain with new labels</button>
+        <button class="btn ghost" type="button" id="reset" style="margin-left:6px">Clear all labels</button>
+        <ul class="log" id="log"></ul>
+      </div>
+      <div>
+        <strong style="font-size:14px">Label history</strong>
+        <div class="tblwrap" id="history"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  // ---------- deterministic synthetic data ----------
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const gauss = () => { let u=0,v=0; while(!u)u=rnd(); while(!v)v=rnd(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
+
+  const ROOMS = ["Bathroom","Bedroom","Hallway","Kitchen"];
+  const BASE = {Bathroom:56,Bedroom:45,Hallway:47,Kitchen:50};
+  const N = 180; // minutes per window
+
+  function baseline(room, off){
+    const a=[]; for(let i=0;i<N;i++){ a.push(BASE[room] + 2.2*Math.sin((i+off)/40) + gauss()*0.45); } return a;
+  }
+
+  const EVENTS = [
+    {id:"E1", room:"Kitchen", start:"09:12", s:80, e:88, truth:"fault", kind:"spike",
+     p:{LightGBM:.94,"Random Forest":.88,"Isolation Forest":.81,Autoencoder:.90},
+     feats:[["Rate of change, 1 min","+38% RH per min, far above normal"],["Rolling z score, 10 min","8.4, extreme"],["Cross room mean","other rooms unchanged"]]},
+    {id:"E2", room:"Bathroom", start:"07:05", s:70, e:115, truth:"real", kind:"shower",
+     p:{LightGBM:.61,"Random Forest":.47,"Isolation Forest":.72,Autoencoder:.83},
+     feats:[["Rate of change, 5 min","+6% RH per min, fast rise"],["Deviation from local baseline","+27% RH"],["Time of day","morning, common for showers"]]},
+    {id:"E3", room:"Bedroom", start:"13:40", s:60, e:105, truth:"fault", kind:"stuck",
+     p:{LightGBM:.79,"Random Forest":.71,"Isolation Forest":.44,Autoencoder:.52},
+     feats:[["Rolling std, 30 min","0.00, no variation at all"],["First difference","zero for 45 minutes"],["Cross room variability","other rooms drifting normally"]]},
+    {id:"E4", room:"Hallway", start:"16:22", s:90, e:106, truth:"fault", kind:"dropout",
+     p:{LightGBM:.99,"Random Forest":.97,"Isolation Forest":.93,Autoencoder:.95},
+     feats:[["Missing value indicator","16 consecutive minutes missing"],["Instantaneous room status","no data"],["Cross room mean","other rooms reporting"]]},
+    {id:"E5", room:"Kitchen", start:"18:30", s:60, e:120, truth:"real", kind:"cooking",
+     p:{LightGBM:.55,"Random Forest":.42,"Isolation Forest":.63,Autoencoder:.71},
+     feats:[["Deviation from local baseline","+16% RH, gradual"],["Time of day","evening, common for cooking"],["Cross room mean","hallway also rising slightly"]]},
+    {id:"E6", room:"Bathroom", start:"11:48", s:75, e:95, truth:"fault", kind:"noise",
+     p:{LightGBM:.90,"Random Forest":.84,"Isolation Forest":.77,Autoencoder:.88},
+     feats:[["Rolling std, 1 min","9.8% RH, about 20 times normal"],["Range and local variation","jumps of 25% RH between samples"],["Rolling mean, 10 min","roughly unchanged"]]},
+    {id:"E7", room:"Hallway", start:"15:02", s:65, e:125, truth:"real", kind:"window",
+     p:{LightGBM:.52,"Random Forest":.38,"Isolation Forest":.58,Autoencoder:.66},
+     feats:[["Deviation from local baseline","minus 12% RH"],["Cross room mean","bedroom dropping at the same time"],["Rate of change, 5 min","steady fall, not abrupt"]]},
+    {id:"E8", room:"Bedroom", start:"02:14", s:85, e:110, truth:"fault", kind:"outage",
+     p:{LightGBM:.98,"Random Forest":.96,"Isolation Forest":.91,Autoencoder:.94},
+     feats:[["Missing value indicator","missing in all four rooms at once"],["Instantaneous room status","no data from any room"],["Cross room mean","undefined during the gap"]]}
+  ];
+  const THRESH = {LightGBM:.50,"Random Forest":.55,"Isolation Forest":.60,Autoencoder:.65};
+
+  EVENTS.forEach((ev,k)=>{
+    const series = {};
+    ROOMS.forEach((r,j)=> series[r] = baseline(r, k*37 + j*11));
+    const f = series[ev.room];
+    const len = ev.e - ev.s;
+    if(ev.kind==="spike"){ for(let i=ev.s;i<ev.e;i++){ f[i] = f[i] + (92-f[i])*Math.sin(Math.PI*(i-ev.s)/len); } }
+    if(ev.kind==="shower"){ for(let i=ev.s;i<N;i++){ const t=i-ev.s; const up=Math.min(1,t/10); const dn=t>12?Math.exp(-(t-12)/22):1; f[i]+= 27*up*dn; }
+      const h=series.Hallway; for(let i=ev.s+4;i<N;i++){ const t=i-ev.s-4; h[i]+= 5*Math.min(1,t/12)*(t>14?Math.exp(-(t-14)/28):1); } }
+    if(ev.kind==="stuck"){ const v=f[ev.s]; for(let i=ev.s;i<ev.e;i++) f[i]=v; }
+    if(ev.kind==="dropout"){ for(let i=ev.s;i<ev.e;i++) f[i]=null; }
+    if(ev.kind==="cooking"){ for(let i=ev.s;i<N;i++){ const t=i-ev.s; f[i]+= 16*Math.min(1,t/22)*(t>40?Math.exp(-(t-40)/25):1); }
+      const h=series.Hallway; for(let i=ev.s+6;i<N;i++){ const t=i-ev.s-6; h[i]+= 4*Math.min(1,t/25)*(t>40?Math.exp(-(t-40)/30):1); } }
+    if(ev.kind==="noise"){ for(let i=ev.s;i<ev.e;i++) f[i] = Math.max(5,Math.min(95,f[i]+gauss()*10)); }
+    if(ev.kind==="window"){ ["Hallway","Bedroom"].forEach((r,q)=>{ const s=series[r]; const amp=q?9:12; for(let i=ev.s;i<N;i++){ const t=i-ev.s; s[i]-= amp*Math.min(1,t/15)*(t>45?Math.exp(-(t-45)/30):1); } }); }
+    if(ev.kind==="outage"){ ROOMS.forEach(r=>{ for(let i=ev.s;i<ev.e;i++) series[r][i]=null; }); }
+    ev.series = series;
+    ev.meanP = Object.values(ev.p).reduce((a,b)=>a+b,0)/4;
+  });
+
+  const PATTERNS = ["Spike","Stuck at one value","Noise burst","Data missing","Slow drift","Other"];
+  const CAUSES = ["Power loss","Network or gateway outage","Sensor hardware","Calibration drift","Maintenance work","Sensor blocked or moved","Unknown"];
+  const REAL = ["Shower or bath","Cooking","Window or door open","HVAC or dehumidifier change","People in the room","Weather","Other"];
+  const CONF = ["Sure","Fairly sure","Guessing"];
+
+  // ---------- state ----------
+  const KEY = "hfr-labels-v1", KEY2 = "hfr-model-v1";
+  let labels = {}, model = {version:1, fa:59.9, trainedOn:0, log:[]};
+  try{ labels = JSON.parse(localStorage.getItem(KEY)) || {}; }catch(e){ labels = {}; }
+  try{ const m = JSON.parse(localStorage.getItem(KEY2)); if(m) model = m; }catch(e){}
+  const persist = () => { try{ localStorage.setItem(KEY, JSON.stringify(labels)); localStorage.setItem(KEY2, JSON.stringify(model)); }catch(e){} };
+
+  let sortMode = "u", currentId = null, showOthers = true;
+  const $ = s => document.querySelector(s);
+
+  // ---------- rooms ----------
+  function renderRooms(){
+    $("#rooms").innerHTML = ROOMS.map(r=>{
+      const vals = EVENTS[0].series[r]; const cur = vals[vals.length-1];
+      const open = EVENTS.filter(e=>e.room===r && !labels[e.id]).length;
+      return `<div class="room"><div class="name">${r}</div><div class="rh">${cur.toFixed(1)}<small>% RH</small></div>
+      <div class="st">${open ? `<b>${open} to review</b>` : "Nothing to review"}</div></div>`;
+    }).join("");
+  }
+
+  // ---------- queue ----------
+  function orderedEvents(){
+    const list = EVENTS.slice();
+    if(sortMode==="u") list.sort((a,b)=> Math.abs(a.meanP-.5) - Math.abs(b.meanP-.5));
+    else list.sort((a,b)=> b.start.localeCompare(a.start));
+    return list;
+  }
+  function renderQueue(){
+    const open = EVENTS.filter(e=>!labels[e.id]).length;
+    $("#qcount").textContent = `${open} open`;
+    $("#queue").innerHTML = orderedEvents().map(ev=>{
+      const l = labels[ev.id];
+      const status = l ? `<span class="q-done ${l.verdict==="real"?"real":""}">${l.verdict==="fault"?"Labeled fault":l.verdict==="real"?"Labeled real change":"Sent for second review"}</span>` : `<span class="q-time">Today ${ev.start}</span>`;
+      return `<li><button type="button" data-id="${ev.id}" aria-current="${ev.id===currentId}">
+        <span class="q-room">${ev.room}</span>
+        <span class="q-p">${Math.round(ev.meanP*100)}%<span class="meter"><i style="width:${ev.meanP*100}%"></i></span></span>
+        ${status}</button></li>`;
+    }).join("");
+    document.querySelectorAll("#queue button").forEach(b=> b.addEventListener("click",()=>select(b.dataset.id)));
+  }
+
+  // ---------- chart ----------
+  function chart(ev){
+    const W=800,H=270,L=42,R=12,T=14,B=30, w=W-L-R, h=H-T-B;
+    const x = i => L + i/(N-1)*w, y = v => T + (1-v/100)*h;
+    const path = arr => { let d="",pen=false; arr.forEach((v,i)=>{ if(v==null){pen=false;return;} d += (pen?"L":"M")+x(i).toFixed(1)+","+y(v).toFixed(1); pen=true; }); return d; };
+    const [hh,mm] = ev.start.split(":").map(Number); const t0 = hh*60+mm - ev.s;
+    const fmt = m => { m=((m%1440)+1440)%1440; return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); };
+    let g = "";
+    [0,25,50,75,100].forEach(v=>{ g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${v}</text>`; });
+    for(let i=0;i<N;i+=30){ g+=`<text x="${x(i)}" y="${H-10}" text-anchor="middle" font-size="11" fill="var(--muted)">${fmt(t0+i)}</text>`; }
+    g += `<rect x="${x(ev.s)}" y="${T}" width="${x(ev.e)-x(ev.s)}" height="${h}" fill="var(--amber-soft)"/>`;
+    g += `<line x1="${x(ev.s)}" x2="${x(ev.s)}" y1="${T}" y2="${T+h}" stroke="var(--amber)" stroke-dasharray="3 3"/>`;
+    g += `<text x="${x(ev.s)+5}" y="${T+13}" font-size="11" fill="var(--amber)" font-weight="600">flagged</text>`;
+    if(showOthers) ROOMS.filter(r=>r!==ev.room).forEach(r=>{ g+=`<path d="${path(ev.series[r])}" fill="none" stroke="var(--muted)" stroke-opacity=".45" stroke-width="1.2"/>`; });
+    g += `<path d="${path(ev.series[ev.room])}" fill="none" stroke="var(--teal)" stroke-width="2.4" stroke-linejoin="round"/>`;
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Relative humidity in the ${ev.room} over three hours with the flagged window shaded">${g}</svg>`;
+  }
+
+  // ---------- review ----------
+  function select(id){
+    currentId = id; const ev = EVENTS.find(e=>e.id===id);
+    const uncertain = Math.abs(ev.meanP-.5) < .15;
+    const votes = Object.entries(ev.p).map(([m,v])=>`<div class="vote"><span>${m}</span><span class="bar thr" style="--t:${THRESH[m]*100}%"><i style="width:${v*100}%"></i></span><span>${Math.round(v*100)}%</span></div>`).join("");
+    const flagged = Object.entries(ev.p).filter(([m,v])=>v>=THRESH[m]).length;
+    $("#review").innerHTML = `
+      <div class="ev-head"><h3>${ev.room}, today at ${ev.start}</h3><p>${flagged} of 4 models flag this window</p></div>
+      ${uncertain ? `<div class="ask">The models disagree here. Your answer on this one improves the detector the most.</div>` : ""}
+      <div class="chartbox">${chart(ev)}</div>
+      <div class="legend"><span><i class="sw" style="background:var(--teal)"></i>${ev.room}</span>
+        <span><i class="sw" style="background:var(--muted);opacity:.5"></i>Other rooms</span>
+        <label><input type="checkbox" id="others" ${showOthers?"checked":""}> Show other rooms for comparison</label></div>
+      <div class="evidence">
+        <div><h4>Fault probability by model</h4>${votes}<div class="note">The black tick on each bar is that model's alarm threshold.</div></div>
+        <div><h4>Why the detector flagged it</h4>${ev.feats.map(f=>`<p class="feat"><b>${f[0]}:</b> ${f[1]}</p>`).join("")}</div>
+      </div>`;
+    $("#others").addEventListener("change",e=>{ showOthers=e.target.checked; select(id); });
+    loadForm(); renderQueue();
+  }
+
+  // ---------- form ----------
+  function buildChecks(){
+    const fill = (grp, items, type) => { document.querySelector(`[data-group="${grp}"]`).innerHTML = items.map(v=>`<label><input type="${type}" name="${grp}" value="${v}"><span>${v}</span></label>`).join(""); };
+    fill("pattern",PATTERNS,"checkbox"); fill("cause",CAUSES,"checkbox"); fill("event",REAL,"checkbox"); fill("conf",CONF,"radio");
+  }
+  function verdict(){ const v=document.querySelector('input[name="verdict"]:checked'); return v?v.value:null; }
+  function syncForm(){
+    const v = verdict();
+    $("#faultSet").classList.toggle("hidden", v!=="fault");
+    $("#causeSet").classList.toggle("hidden", v!=="fault");
+    $("#realSet").classList.toggle("hidden", v!=="real");
+    $("#save").disabled = !v || !currentId;
+  }
+  function loadForm(){
+    $("#form").reset(); $("#toast").textContent="";
+    const l = labels[currentId];
+    $("#labelstate").textContent = l ? "saved, you can edit it" : "";
+    if(l){
+      const set = (name,vals)=> (vals||[]).forEach(v=>{ const el=document.querySelector(`input[name="${name}"][value="${CSS.escape(v)}"]`); if(el) el.checked=true; });
+      set("verdict",[l.verdict]); set("pattern",l.pattern); set("cause",l.cause); set("event",l.event); set("conf",[l.conf]);
+      $("#note").value = l.note || "";
+    }
+    syncForm();
+  }
+  $("#form").addEventListener("change", syncForm);
+  $("#form").addEventListener("submit", e=>{
+    e.preventDefault(); if(!currentId) return;
+    const vals = n => [...document.querySelectorAll(`input[name="${n}"]:checked`)].map(i=>i.value);
+    const ev = EVENTS.find(x=>x.id===currentId);
+    labels[currentId] = { verdict:verdict(), pattern:vals("pattern"), cause:vals("cause"), event:vals("event"), conf:vals("conf")[0]||"", note:$("#note").value.trim(), modelSaidFault: ev.meanP>=.5, at:new Date().toISOString() };
+    persist(); $("#toast").textContent = "Label saved. It will be used at the next retrain.";
+    $("#labelstate").textContent = "saved, you can edit it";
+    renderAll(false);
+    setTimeout(nextOpen, 700);
+  });
+  $("#skip").addEventListener("click", nextOpen);
+  function nextOpen(){ const n = orderedEvents().find(e=>!labels[e.id] && e.id!==currentId); if(n) select(n.id); }
+
+  // ---------- learning loop ----------
+  function renderLoop(){
+    const ls = Object.entries(labels);
+    const decided = ls.filter(([,l])=>l.verdict!=="unsure");
+    const agree = decided.filter(([,l])=> (l.verdict==="fault") === l.modelSaidFault).length;
+    const caught = decided.filter(([,l])=> l.verdict==="real" && l.modelSaidFault).length;
+    $("#sLabeled").textContent = `${ls.length} of ${EVENTS.length}`;
+    $("#sAgree").textContent = decided.length ? Math.round(agree/decided.length*100)+"%" : "n/a";
+    $("#sCaught").textContent = caught;
+    $("#sFA").textContent = model.fa.toFixed(1);
+    const fresh = ls.length - model.trainedOn;
+    $("#retrain").disabled = fresh < 2;
+    $("#retrain").textContent = fresh>0 ? `Retrain with ${fresh} new label${fresh>1?"s":""}` : "Retrain with new labels";
+    $("#log").innerHTML = model.log.length ? model.log.slice().reverse().map(x=>`<li>${x}</li>`).join("") : `<li class="empty">Label at least two events, then retrain to see the effect.</li>`;
+    const rows = ls.map(([id,l])=>{ const ev=EVENTS.find(e=>e.id===id);
+      const detail = l.verdict==="fault" ? [...l.pattern,...l.cause].join(", ") : l.verdict==="real" ? l.event.join(", ") : "";
+      return `<tr><td>${ev.room} ${ev.start}</td><td>${l.verdict==="fault"?"Sensor fault":l.verdict==="real"?"Real change":"Can't tell"}</td><td>${detail||"none given"}</td><td>${l.conf||""}</td></tr>`; }).join("");
+    $("#history").innerHTML = rows ? `<table><thead><tr><th>Event</th><th>Verdict</th><th>Details</th><th>Confidence</th></tr></thead><tbody>${rows}</tbody></table>` : `<p class="empty">No labels yet. Pick an event from the queue to start.</p>`;
+  }
+  $("#retrain").addEventListener("click", ()=>{
+    const ls = Object.values(labels);
+    const fresh = ls.length - model.trainedOn;
+    const realCaught = ls.filter(l=>l.verdict==="real" && l.modelSaidFault).length;
+    const before = model.fa;
+    // Simulated effect: confirmed real events and confident fault labels reduce false alarms
+    const target = 59.9 * Math.max(.45, 1 - .11*realCaught - .03*ls.filter(l=>l.verdict==="fault").length);
+    model.fa = Math.min(before, target);
+    model.version += 1; model.trainedOn = ls.length;
+    model.log.push(`Model v${model.version} trained on ${fresh} new label${fresh>1?"s":""}: false alarms per day ${before.toFixed(1)} to ${model.fa.toFixed(1)} (simulated)`);
+    persist(); renderLoop();
+  });
+  $("#reset").addEventListener("click", ()=>{
+    labels = {}; model = {version:1, fa:59.9, trainedOn:0, log:[]}; persist(); renderAll(true);
+  });
+
+  $("#sortU").addEventListener("click",()=>{ sortMode="u"; $("#sortU").setAttribute("aria-pressed","true"); $("#sortT").setAttribute("aria-pressed","false"); renderQueue(); });
+  $("#sortT").addEventListener("click",()=>{ sortMode="t"; $("#sortT").setAttribute("aria-pressed","true"); $("#sortU").setAttribute("aria-pressed","false"); renderQueue(); });
+
+  function renderAll(reselect){ renderRooms(); renderQueue(); renderLoop(); if(reselect) select(orderedEvents()[0].id); }
+  buildChecks(); renderAll(true);
+})();
+</script>
+</body>
+</html>
